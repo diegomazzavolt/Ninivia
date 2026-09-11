@@ -1,6 +1,1 @@
-{
-  "name": "Secure Notes",
-  "description": "A secure note-taking app with categories, tags, E2E encryption, and real-time cloud sync.",
-  "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
-}
+{"name":"Ninivia","description":"Notas e ações pessoais com organização GTD. Android nativo, armazenamento local e backup protegido por senha."}

@@ -1,77 +1,45 @@
 package com.example
 
+import android.app.Application
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.Surface
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.runtime.*
-import androidx.compose.ui.Modifier
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.navigation.compose.NavHost
-import androidx.navigation.compose.composable
-import androidx.navigation.compose.rememberNavController
+import androidx.navigation.NavType
+import androidx.navigation.navArgument
+import androidx.navigation.compose.*
 import com.example.data.AppDatabase
 import com.example.data.NoteRepository
-import com.example.ui.HomeScreen
-import com.example.ui.HomeViewModel
-import com.example.ui.NoteDetailScreen
-import com.example.ui.NoteDetailViewModel
-import com.example.ui.SyncDialog
-import com.example.ui.ViewModelFactory
+import com.example.ui.*
 import com.example.ui.theme.MyApplicationTheme
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        
-        val database = AppDatabase.getDatabase(this)
-        val repository = NoteRepository(database.noteDao())
-        
-        setContent {
-            MyApplicationTheme {
-                Surface(
-                    modifier = Modifier.fillMaxSize(),
-                    color = MaterialTheme.colorScheme.background
-                ) {
-                    AppNavigation(repository)
-                }
-            }
-        }
+        val repository = NoteRepository(AppDatabase.getDatabase(this))
+        setContent { MyApplicationTheme { AppNavigation(repository) } }
     }
 }
-
 @Composable
 fun AppNavigation(repository: NoteRepository) {
-    val navController = rememberNavController()
-    var showSyncDialog by remember { mutableStateOf(false) }
-
-    if (showSyncDialog) {
-        SyncDialog(onDismiss = { showSyncDialog = false })
-    }
-
-    NavHost(navController = navController, startDestination = "home") {
+    val nav = rememberNavController()
+    val application = LocalContext.current.applicationContext as Application
+    NavHost(navController = nav, startDestination = "home") {
         composable("home") {
-            val viewModel: HomeViewModel = viewModel(factory = ViewModelFactory(repository))
-            HomeScreen(
-                viewModel = viewModel,
-                onNavigateToNote = { id ->
-                    val route = if (id == null) "note/new" else "note/$id"
-                    navController.navigate(route)
-                },
-                onSyncClicked = { showSyncDialog = true }
-            )
+            val vm: HomeViewModel = viewModel(factory = ViewModelFactory(application, repository))
+            HomeScreen(vm, onNavigateToNote = { id, project ->
+                nav.navigate("note/" + (id ?: "new") + (project?.let { "?project=$it" } ?: ""))
+            })
         }
-        composable("note/{id}") { backStackEntry ->
-            val id = backStackEntry.arguments?.getString("id").takeIf { it != "new" }
-            val viewModel: NoteDetailViewModel = viewModel(factory = ViewModelFactory(repository, id))
-            NoteDetailScreen(
-                viewModel = viewModel,
-                onNavigateBack = { navController.popBackStack() }
-            )
+        composable("note/{id}?project={project}", arguments = listOf(navArgument("project") { type = NavType.StringType; nullable = true; defaultValue = null })) { entry ->
+            val id = entry.arguments?.getString("id")?.takeUnless { it == "new" }
+            val project = entry.arguments?.getString("project")
+            val vm: NoteDetailViewModel = viewModel(factory = ViewModelFactory(application, repository, id, project))
+            NoteDetailScreen(vm) { nav.popBackStack() }
         }
     }
 }
